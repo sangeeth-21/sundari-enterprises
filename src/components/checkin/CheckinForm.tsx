@@ -188,13 +188,39 @@ export const CheckinForm: React.FC = () => {
       // Draw the video frame to canvas
       context.drawImage(video, 0, 0, canvasWidth, canvasHeight);
       
+      // Add timestamp overlay to the canvas
+      const now = new Date();
+      const timeString = formatTime(now);
+      const dateString = formatDate(now);
+      
+      // Set text properties
+      context.font = '14px Arial, sans-serif';
+      context.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      context.textAlign = 'right';
+      
+      // Add background rectangles for text
+      const timeText = timeString;
+      const dateText = dateString;
+      const timeWidth = context.measureText(timeText).width;
+      const dateWidth = context.measureText(dateText).width;
+      const padding = 8;
+      const lineHeight = 20;
+      
+      // Draw background rectangles
+      context.fillRect(canvasWidth - Math.max(timeWidth, dateWidth) - padding * 2, canvasHeight - lineHeight * 2 - padding * 2, Math.max(timeWidth, dateWidth) + padding * 2, lineHeight * 2 + padding * 2);
+      
+      // Draw text
+      context.fillStyle = 'white';
+      context.fillText(timeText, canvasWidth - padding, canvasHeight - lineHeight - padding);
+      context.fillText(dateText, canvasWidth - padding, canvasHeight - padding);
+      
       // Convert canvas to blob
       canvas.toBlob((blob) => {
         if (blob) {
-          const file = new File([blob], `shop-photo-${Date.now()}.jpg`, { type: 'image/jpeg' });
+          const file = new File([blob], `shop-photo-${now.getTime()}.jpg`, { type: 'image/jpeg' });
           setCapturedPhoto(file);
           setPhotoPreview(canvas.toDataURL('image/jpeg', 0.8));
-          setCaptureTime(new Date());
+          setCaptureTime(now);
           form.setValue('shopPhoto', file);
           stopCamera();
         } else {
@@ -219,12 +245,17 @@ export const CheckinForm: React.FC = () => {
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString([], { 
       hour: '2-digit', 
-      minute: '2-digit'
+      minute: '2-digit',
+      second: '2-digit'
     });
   };
 
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString();
+    return date.toLocaleDateString([], {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
   };
 
   const onSubmit = async (data: CheckinFormData) => {
@@ -240,12 +271,23 @@ export const CheckinForm: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      const success = await createCheckin(parseInt(data.customerId), capturedPhoto);
+      // Add timestamp metadata to the photo
+      const uploadTime = new Date();
+      const photoWithTimestamp = new File(
+        [capturedPhoto], 
+        `shop-photo-${uploadTime.getTime()}.jpg`,
+        { 
+          type: 'image/jpeg',
+          lastModified: uploadTime.getTime()
+        }
+      );
+
+      const success = await createCheckin(parseInt(data.customerId), photoWithTimestamp);
       
       if (success) {
         toast({
           title: t('success'),
-          description: t('checkinSuccessful'),
+          description: `${t('checkinSuccessful')} - ${formatTime(uploadTime)} ${formatDate(uploadTime)}`,
         });
         
         // Reset form
@@ -343,24 +385,20 @@ export const CheckinForm: React.FC = () => {
                           type="button"
                           onClick={startCamera}
                           variant="outline"
-                          className="w-full h-32 bg-accent/20 hover:bg-accent/30 border-2 border-dashed border-primary/30 hover:border-primary/50 transition-all duration-300"
+                          className="w-full h-40 bg-accent/20 hover:bg-accent/30 border-2 border-dashed border-primary/30 hover:border-primary/50 transition-all duration-300 flex flex-col items-center justify-center gap-3"
                         >
-                          <div className="flex flex-col items-center gap-2">
-                            <Camera className="w-8 h-8 text-primary" />
-                            <span className="text-foreground font-medium transition-all duration-300">{t('openCamera')}</span>
-                          </div>
+                          <Camera className="w-8 h-8 text-primary" />
+                          <span className="text-foreground font-medium transition-all duration-300">{t('openCamera')}</span>
                         </Button>
                       )}
 
                       {isCameraOpen && (
                         <div className="space-y-4">
-                          <div className="relative rounded-lg overflow-hidden bg-black min-h-[300px] flex items-center justify-center">
+                          <div className="relative rounded-lg overflow-hidden bg-black aspect-video w-full flex items-center justify-center">
                             {!isCameraReady && (
-                              <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10">
-                                <div className="text-white text-center">
-                                  <LoadingSpinner size="lg" className="mx-auto mb-2" />
-                                  <p className="text-sm">{t('loadingCamera') || 'Loading camera...'}</p>
-                                </div>
+                              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 z-10">
+                                <LoadingSpinner size="lg" className="text-white mb-3" />
+                                <p className="text-white text-sm font-medium">{t('loadingCamera') || 'Loading camera...'}</p>
                               </div>
                             )}
                             <video
@@ -368,20 +406,19 @@ export const CheckinForm: React.FC = () => {
                               autoPlay
                               playsInline
                               muted
-                              className="w-full h-80 object-cover rounded-lg"
+                              className="w-full h-full object-cover"
                               style={{ 
-                                transform: 'scaleX(-1)',
                                 opacity: isCameraReady ? 1 : 0,
                                 transition: 'opacity 0.3s ease'
                               }}
                             />
                           </div>
-                          <div className="flex gap-3">
+                          <div className="flex items-center gap-3">
                             <Button
                               type="button"
                               onClick={capturePhoto}
                               disabled={!isCameraReady}
-                              className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover-scale transition-all duration-300 disabled:opacity-50"
+                              className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover-scale transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               <Camera className="w-4 h-4 mr-2" />
                               {t('capturePhoto')}
@@ -390,7 +427,7 @@ export const CheckinForm: React.FC = () => {
                               type="button"
                               onClick={stopCamera}
                               variant="outline"
-                              className="hover:bg-destructive/10 border-destructive/20 text-destructive hover-scale transition-all duration-300"
+                              className="px-4 hover:bg-destructive/10 border-destructive/20 text-destructive hover-scale transition-all duration-300"
                             >
                               <X className="w-4 h-4" />
                             </Button>
@@ -400,14 +437,14 @@ export const CheckinForm: React.FC = () => {
 
                       {photoPreview && captureTime && (
                         <div className="space-y-4">
-                          <div className="relative rounded-lg overflow-hidden">
+                          <div className="relative rounded-lg overflow-hidden aspect-video w-full">
                             <img
                               src={photoPreview}
                               alt="Captured shop photo"
-                              className="w-full h-64 object-cover rounded-lg"
+                              className="w-full h-full object-cover"
                             />
                             {/* Time and Date overlay */}
-                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-4">
+                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4">
                               <div className="flex justify-between items-end text-white">
                                 <div className="flex items-center gap-2">
                                   <Clock className="w-4 h-4" />
@@ -420,15 +457,17 @@ export const CheckinForm: React.FC = () => {
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 p-3 bg-success/20 rounded-lg border border-success/20 transition-all duration-300">
-                            <Check className="w-4 h-4 text-success" />
-                            <span className="text-sm font-medium text-success transition-all duration-300">{t('photoReady')}</span>
+                          <div className="flex items-center justify-between gap-3 p-4 bg-success/20 rounded-lg border border-success/30 transition-all duration-300">
+                            <div className="flex items-center gap-2">
+                              <Check className="w-4 h-4 text-success" />
+                              <span className="text-sm font-medium text-success transition-all duration-300">{t('photoReady')}</span>
+                            </div>
                             <Button
                               type="button"
                               onClick={retakePhoto}
                               variant="ghost"
                               size="sm"
-                              className="ml-auto text-muted-foreground hover:text-foreground transition-all duration-300"
+                              className="text-muted-foreground hover:text-foreground transition-all duration-300"
                             >
                               {t('retake')}
                             </Button>
@@ -463,6 +502,56 @@ export const CheckinForm: React.FC = () => {
             </Button>
           </form>
         </Form>
+
+        {/* Recent Checkins Section */}
+        <div className="mt-8 space-y-4">
+          <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+            <Clock className="w-5 h-5 text-primary" />
+            {t('recentCheckins') || 'Recent Checkins'}
+          </h3>
+          
+          {/* Sample Recent Checkin Card */}
+          <Card className="bg-card border-primary/10 hover:border-primary/20 transition-all duration-300">
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-muted-foreground">ID:</span>
+                    <span className="text-sm text-foreground">1</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <User className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-medium text-foreground">Current User</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">{formatDate(new Date())}</span>
+                  </div>
+                </div>
+                
+                {/* Action Buttons - Properly contained within card */}
+                <div className="flex flex-col gap-2 min-w-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full bg-primary/10 hover:bg-primary/20 border-primary/20 text-primary hover:text-primary transition-all duration-300"
+                  >
+                    <Camera className="w-3 h-3 mr-1" />
+                    {t('viewPhoto') || 'View Photo'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full bg-destructive/10 hover:bg-destructive/20 border-destructive/20 text-destructive hover:text-destructive transition-all duration-300"
+                  >
+                    <X className="w-3 h-3 mr-1" />
+                    {t('delete') || 'Delete'}
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Hidden canvas for photo capture */}
         <canvas ref={canvasRef} className="hidden" />
