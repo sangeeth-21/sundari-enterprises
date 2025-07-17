@@ -502,57 +502,6 @@ export const CheckinForm: React.FC = () => {
             </Button>
           </form>
         </Form>
-
-        {/* Recent Checkins Section */}
-        <div className="mt-8 space-y-4">
-          <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-            <Clock className="w-5 h-5 text-primary" />
-            {t('recentCheckins') || 'Recent Checkins'}
-          </h3>
-          
-          {/* Sample Recent Checkin Card */}
-          <Card className="bg-card border-primary/10 hover:border-primary/20 transition-all duration-300">
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-muted-foreground">ID:</span>
-                    <span className="text-sm text-foreground">1</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <User className="w-4 h-4 text-primary" />
-                    <span className="text-sm font-medium text-foreground">Current User</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-xs text-muted-foreground">{formatDate(new Date())}</span>
-                  </div>
-                </div>
-                
-                {/* Action Buttons - Properly contained within card */}
-                <div className="flex flex-col gap-2 min-w-0">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full bg-primary/10 hover:bg-primary/20 border-primary/20 text-primary hover:text-primary transition-all duration-300"
-                  >
-                    <Camera className="w-3 h-3 mr-1" />
-                    {t('viewPhoto') || 'View Photo'}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full bg-destructive/10 hover:bg-destructive/20 border-destructive/20 text-destructive hover:text-destructive transition-all duration-300"
-                  >
-                    <X className="w-3 h-3 mr-1" />
-                    {t('delete') || 'Delete'}
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
         {/* Hidden canvas for photo capture */}
         <canvas ref={canvasRef} className="hidden" />
       </CardContent>
