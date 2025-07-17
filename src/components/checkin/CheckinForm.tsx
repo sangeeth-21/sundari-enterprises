@@ -1,5 +1,4 @@
-
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -33,6 +32,7 @@ export const CheckinForm: React.FC = () => {
   const [capturedPhoto, setCapturedPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [isCameraReady, setIsCameraReady] = useState(false);
   const [captureTime, setCaptureTime] = useState<Date | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -45,29 +45,94 @@ export const CheckinForm: React.FC = () => {
     },
   });
 
+  // Cleanup camera stream on component unmount
+  useEffect(() => {
+    return () => {
+      stopCamera();
+    };
+  }, []);
+
   const startCamera = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { 
+      setIsCameraReady(false);
+      setIsCameraOpen(true);
+
+      // Request camera access with fallback options
+      const constraints = {
+        video: {
           facingMode: 'environment',
-          width: { ideal: 1920 },
-          height: { ideal: 1080 }
-        }
-      });
+          width: { ideal: 1920, max: 1920 },
+          height: { ideal: 1080, max: 1080 }
+        },
+        audio: false
+      };
+
+      let stream: MediaStream;
+
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (error) {
+        // Fallback to basic constraints if advanced constraints fail
+        console.warn('Advanced camera constraints failed, trying basic constraints:', error);
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false
+        });
+      }
+
       streamRef.current = stream;
+      
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        // Wait for video to load before showing
+        
+        // Wait for video to be ready
         videoRef.current.onloadedmetadata = () => {
-          videoRef.current?.play();
+          if (videoRef.current) {
+            videoRef.current.play()
+              .then(() => {
+                setIsCameraReady(true);
+              })
+              .catch((playError) => {
+                console.error('Error playing video:', playError);
+                toast({
+                  title: t('error'),
+                  description: t('cameraPlaybackError') || 'Failed to start camera playback',
+                  variant: 'destructive',
+                });
+              });
+          }
+        };
+
+        // Handle video errors
+        videoRef.current.onerror = (error) => {
+          console.error('Video error:', error);
+          toast({
+            title: t('error'),
+            description: t('cameraError') || 'Camera error occurred',
+            variant: 'destructive',
+          });
         };
       }
-      setIsCameraOpen(true);
     } catch (error) {
       console.error('Error accessing camera:', error);
+      setIsCameraOpen(false);
+      setIsCameraReady(false);
+      
+      let errorMessage = t('cameraAccessDenied') || 'Camera access denied';
+      
+      if (error instanceof Error) {
+        if (error.name === 'NotFoundError') {
+          errorMessage = t('cameraNotFound') || 'No camera found on this device';
+        } else if (error.name === 'NotAllowedError') {
+          errorMessage = t('cameraPermissionDenied') || 'Camera permission denied';
+        } else if (error.name === 'NotReadableError') {
+          errorMessage = t('cameraInUse') || 'Camera is already in use';
+        }
+      }
+      
       toast({
         title: t('error'),
-        description: t('cameraAccessDenied'),
+        description: errorMessage,
         variant: 'destructive',
       });
     }
@@ -75,18 +140,35 @@ export const CheckinForm: React.FC = () => {
 
   const stopCamera = () => {
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current.getTracks().forEach(track => {
+        track.stop();
+      });
       streamRef.current = null;
     }
+    
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    
     setIsCameraOpen(false);
+    setIsCameraReady(false);
   };
 
   const capturePhoto = () => {
-    if (videoRef.current && canvasRef.current) {
+    if (videoRef.current && canvasRef.current && isCameraReady) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
       const context = canvas.getContext('2d');
       
+      if (!context) {
+        toast({
+          title: t('error'),
+          description: t('canvasError') || 'Canvas not available',
+          variant: 'destructive',
+        });
+        return;
+      }
+
       // Set canvas size to reduce photo size
       const maxWidth = 800;
       const maxHeight = 600;
@@ -103,19 +185,26 @@ export const CheckinForm: React.FC = () => {
       canvas.width = canvasWidth;
       canvas.height = canvasHeight;
       
-      if (context) {
-        context.drawImage(video, 0, 0, canvasWidth, canvasHeight);
-        canvas.toBlob((blob) => {
-          if (blob) {
-            const file = new File([blob], 'shop-photo.jpg', { type: 'image/jpeg' });
-            setCapturedPhoto(file);
-            setPhotoPreview(canvas.toDataURL());
-            setCaptureTime(new Date());
-            form.setValue('shopPhoto', file);
-            stopCamera();
-          }
-        }, 'image/jpeg', 0.7); // Reduced quality for smaller file size
-      }
+      // Draw the video frame to canvas
+      context.drawImage(video, 0, 0, canvasWidth, canvasHeight);
+      
+      // Convert canvas to blob
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const file = new File([blob], `shop-photo-${Date.now()}.jpg`, { type: 'image/jpeg' });
+          setCapturedPhoto(file);
+          setPhotoPreview(canvas.toDataURL('image/jpeg', 0.8));
+          setCaptureTime(new Date());
+          form.setValue('shopPhoto', file);
+          stopCamera();
+        } else {
+          toast({
+            title: t('error'),
+            description: t('photoCaptureFailed') || 'Failed to capture photo',
+            variant: 'destructive',
+          });
+        }
+      }, 'image/jpeg', 0.8);
     }
   };
 
@@ -265,21 +354,34 @@ export const CheckinForm: React.FC = () => {
 
                       {isCameraOpen && (
                         <div className="space-y-4">
-                          <div className="relative rounded-lg overflow-hidden bg-black min-h-[240px] flex items-center justify-center">
+                          <div className="relative rounded-lg overflow-hidden bg-black min-h-[300px] flex items-center justify-center">
+                            {!isCameraReady && (
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10">
+                                <div className="text-white text-center">
+                                  <LoadingSpinner size="lg" className="mx-auto mb-2" />
+                                  <p className="text-sm">{t('loadingCamera') || 'Loading camera...'}</p>
+                                </div>
+                              </div>
+                            )}
                             <video
                               ref={videoRef}
                               autoPlay
                               playsInline
                               muted
-                              className="w-full h-64 object-cover rounded-lg"
-                              style={{ transform: 'scaleX(-1)' }}
+                              className="w-full h-80 object-cover rounded-lg"
+                              style={{ 
+                                transform: 'scaleX(-1)',
+                                opacity: isCameraReady ? 1 : 0,
+                                transition: 'opacity 0.3s ease'
+                              }}
                             />
                           </div>
                           <div className="flex gap-3">
                             <Button
                               type="button"
                               onClick={capturePhoto}
-                              className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover-scale transition-all duration-300"
+                              disabled={!isCameraReady}
+                              className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover-scale transition-all duration-300 disabled:opacity-50"
                             >
                               <Camera className="w-4 h-4 mr-2" />
                               {t('capturePhoto')}
