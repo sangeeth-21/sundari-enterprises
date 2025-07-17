@@ -145,8 +145,8 @@ export const CheckinHistory: React.FC = () => {
                     className="p-4 bg-accent/20 rounded-xl hover:bg-accent/30 transition-all duration-300 hover:scale-[1.01] border border-primary/10 animate-fade-in"
                   >
                     {/* Header */}
-                    <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-4">
-                      <div className="flex items-start gap-3 flex-1">
+                    <div className="flex items-start justify-between gap-4 mb-4">
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
                         <MapPin className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2 mb-2">
@@ -163,7 +163,7 @@ export const CheckinHistory: React.FC = () => {
                           </div>
                           
                           {/* Customer and User Info */}
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-3 text-sm">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm mb-3">
                             <div className="flex items-center gap-2 min-w-0">
                               <User className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                               <div className="min-w-0 flex-1">
@@ -184,52 +184,55 @@ export const CheckinHistory: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Time and Actions Section */}
-                      <div className="flex flex-col sm:flex-row lg:flex-col xl:flex-row items-start sm:items-center gap-3">
-                        {/* Time Display */}
-                        <div className="flex items-center gap-2 bg-primary/5 rounded-lg px-3 py-2 border border-primary/10">
-                          <Clock className="w-4 h-4 text-primary flex-shrink-0" />
-                          <div className="text-sm">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium text-foreground transition-all duration-300">{time}</span>
-                              <span className="text-muted-foreground transition-all duration-300">•</span>
-                              <span className="text-muted-foreground transition-all duration-300">{date}</span>
-                            </div>
-                            <p className="text-xs text-primary font-medium transition-all duration-300">{getTimeAgo(checkin.checkin_time)}</p>
+                      {/* Time Display */}
+                      <div className="flex items-center gap-2 bg-primary/5 rounded-lg px-3 py-2 border border-primary/10 flex-shrink-0">
+                        <Clock className="w-4 h-4 text-primary flex-shrink-0" />
+                        <div className="text-sm">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-foreground transition-all duration-300">{time}</span>
+                            <span className="text-muted-foreground transition-all duration-300">•</span>
+                            <span className="text-muted-foreground transition-all duration-300">{date}</span>
                           </div>
+                          <p className="text-xs text-primary font-medium transition-all duration-300">{getTimeAgo(checkin.checkin_time)}</p>
                         </div>
+                      </div>
+                    </div>
 
-                        {/* Actions */}
-                        <div className="flex items-center gap-2">
-                          {checkin.shop_photo && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleViewPhoto(checkin.shop_photo, checkin.shop_name, checkin.checkin_time)}
-                              className="hover:bg-primary/10 border-primary/20 hover-scale transition-all duration-300 flex-shrink-0"
-                            >
-                              <Eye className="w-4 h-4 sm:mr-2" />
-                              <span className="hidden sm:inline">{t('viewPhoto')}</span>
-                            </Button>
-                          )}
-
+                    {/* Bottom Section - Actions and Info */}
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-3 border-t border-primary/10">
+                      {/* Actions */}
+                      <div className="flex items-center gap-2">
+                        {checkin.shop_photo && (
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleDeleteClick(checkin)}
-                            className="hover:bg-destructive/10 border-destructive/20 text-destructive hover:text-destructive hover-scale transition-all duration-300 flex-shrink-0"
+                            onClick={() => handleViewPhoto(checkin.shop_photo, checkin.shop_name, checkin.checkin_time)}
+                            className="hover:bg-primary/10 border-primary/20 hover-scale transition-all duration-300"
                           >
-                            <Trash2 className="w-4 h-4 sm:mr-2" />
-                            <span className="hidden sm:inline">{t('delete')}</span>
+                            <Eye className="w-4 h-4 mr-2" />
+                            {t('viewPhoto')}
                           </Button>
-                          
-                          <div className="text-right flex-shrink-0">
-                            <p className="text-xs text-muted-foreground transition-all duration-300">ID: {checkin.id}</p>
-                            <p className="text-xs text-muted-foreground transition-all duration-300 truncate max-w-20">
-                              {t('currentUser')}: {checkin.current_user}
-                            </p>
-                          </div>
-                        </div>
+                        )}
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDeleteClick(checkin)}
+                          className="hover:bg-destructive/10 border-destructive/20 text-destructive hover:text-destructive hover-scale transition-all duration-300"
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          {t('delete')}
+                        </Button>
+                      </div>
+                      
+                      {/* ID and Current User Info */}
+                      <div className="text-right">
+                        <p className="text-xs text-muted-foreground transition-all duration-300">
+                          ID: {checkin.id}
+                        </p>
+                        <p className="text-xs text-muted-foreground transition-all duration-300">
+                          {t('currentUser')}: {checkin.current_user}
+                        </p>
                       </div>
                     </div>
                   </div>
